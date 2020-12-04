@@ -21,6 +21,8 @@ public class Basic {
         try {
 			ReInit(reader);
 			parse(sb);
+
+            System.out.println(sb.toString());
         } catch(final Exception exception) {
             exception.printStackTrace();
             throw new RuntimeException(exception);
@@ -54,13 +56,15 @@ TOKEN:
 
 <LET_TOKEN> TOKEN:
 {
-        <NON_QUOTED_FIELD:   (<TEXT>)+> |
-        <LET_VALUE_TOKEN:    (<QUOTED_FIELD>)>
+        <NON_QUOTED_FIELD:   (<TEXT>)+>         |
+        <LET_VALUE_TOKEN:    (<QUOTED_FIELD>)>  |
+        <LET_CR:          (<CR>)>: DEFAULT
 }
 
 <PRINT_TOKEN> TOKEN:
 {
-        <PRINTED_QUOTED_FIELD:  (([" ", "\t"])* <DOUBLE_QUOTE> ( [ " ", "!", "#" - "~", "\n", "\r", "\t" ] | <TWO_DOUBLE_QUOTES> )* <DOUBLE_QUOTE>)> : DEFAULT
+        <PRINTED_QUOTED_FIELD:  (([" ", "\t"])* <DOUBLE_QUOTE> ( [ " ", "!", "#" - "~", "\n", "\r", "\t" ] | <TWO_DOUBLE_QUOTES> )* <DOUBLE_QUOTE>)> |
+        <PRINT_CR:         (<CR>)>: DEFAULT
 }
 
 
@@ -90,18 +94,35 @@ void processLine(final StringBuilder builder) throws Exception:
 }
 
 {
-    <LET>
-    nameToken = <NON_QUOTED_FIELD> 
+    <LET> {
+        System.out.println("Hit LET");
+    }
+
+    nameToken = <NON_QUOTED_FIELD> {
+        System.out.println("LET -> Hit name [" + nameToken.image + "]");
+    }
+
     quotedToken = <LET_VALUE_TOKEN>
     {
-        builder.append("- ").append("var:\n").append("    ").append(nameToken).append(": ").append(quotedToken).append("\n");
+        builder.append("- ").append("var:\n").append("    ").append(nameToken).append(": ").append(quotedToken.image).append("\n");
+
+        System.out.println("LET -> Hit value [" + quotedToken.image + "]");
     }
+
+    <LET_CR>
 
     | 
 
-    <PRINT>
+    <PRINT> {
+        System.out.println("Hit PRINT");
+    }
+
     quotedToken = <PRINTED_QUOTED_FIELD>
     {
         builder.append("- ").append("log:\n").append("    msg: ").append(quotedToken).append("\n");
+
+        System.out.println("PRINT -> Hit value [" + quotedToken.image + "]");
     }
+
+    <PRINT_CR>
 }

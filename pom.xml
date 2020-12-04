@@ -27,7 +27,7 @@
         <java_version>1.8</java_version>
 
         <!-- External library support -->
-        <com.redhat_command>1.0</com.redhat_command>
+        <com.redhat_command>1.2</com.redhat_command>
 
         <net.java.dev.javacc_javacc>7.0.10</net.java.dev.javacc_javacc>
         <org.codehaus.mojo_javacc-maven-plugin>2.6</org.codehaus.mojo_javacc-maven-plugin>
