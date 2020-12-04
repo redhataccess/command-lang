@@ -104,7 +104,7 @@ void processLine(final StringBuilder builder) throws Exception:
 
     quotedToken = <LET_VALUE_TOKEN>
     {
-        builder.append("- ").append("var:\n").append("    ").append(nameToken).append(": ").append(quotedToken.image).append("\n");
+        builder.append("- ").append("var:\n").append("    ").append(nameToken.trim()).append(": ").append(quotedToken.image).append("\n");
 
         System.out.println("LET -> Hit value [" + quotedToken.image + "]");
     }
