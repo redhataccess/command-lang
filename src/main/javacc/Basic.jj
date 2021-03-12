@@ -1,6 +1,6 @@
 PARSER_BEGIN(Basic)
 
-package com.redhat.commandlang.basic;
+package com.redhat.lang.basic;
 
 import java.io.Reader;
 import java.io.StringReader;
@@ -15,12 +15,12 @@ public class Basic {
         this(new StringReader( ""));
     }
 
-    public void parse(final Reader reader) throws Exception {
+    public void parse(final Reader reader, final Builder builder) throws Exception {
         final StringBuilder sb = new StringBuilder();
 
         try {
-			ReInit(reader);
-			parse(sb);
+            ReInit(reader);
+            parse(sb, builder);
 
             System.out.println(sb.toString());
         } catch(final Exception exception) {
@@ -31,6 +31,7 @@ public class Basic {
 }
 
 PARSER_END(Basic)
+
 
 TOKEN:
 {
@@ -43,86 +44,133 @@ TOKEN:
         |
         <#TWO_DOUBLE_QUOTES: (<DOUBLE_QUOTE> <DOUBLE_QUOTE>)>
         |
-        <#TEXT:              (~["\"", "\n", "\r", ","])> 
+        <#TEXT:              (~["\"", "\n", "\r", ",", "{", "}"])> 
         |
-        <#QUOTED_FIELD:       (([" ", "\t"])* <DOUBLE_QUOTE> ( [ " ", "!", "#" - "~", "\n", "\r", "\t" ] | <TWO_DOUBLE_QUOTES> )* <DOUBLE_QUOTE>)>
+        <#LCURLY:            ("{")>
         |
-        <LET:                ("let ")> : LET_TOKEN
+        <#RCURLY:            ("}")>
         |
-        <PRINT:              ("print ")> : PRINT_TOKEN
+        <#QUOTED_FIELD:      (([" ", "\t"])* <DOUBLE_QUOTE> ( [ " ", "!", "#" - "~", "\n", "\r", "\t" ] | <TWO_DOUBLE_QUOTES> )* <DOUBLE_QUOTE>)>
         |
-        <EOL:              (<CR> | <CR> <LF>)>
+        <OBJECT:             ("object")> : OBJECT
+        |
+        <METHOD:             ("method")> : METHOD
+        |
+        <EOL:                (<CR> | <CR> <LF>)>
 }
 
-<LET_TOKEN> TOKEN:
-{
-        <NON_QUOTED_FIELD:   (<TEXT>)+>         |
-        <LET_VALUE_TOKEN:    (<QUOTED_FIELD>)>  |
-        <LET_CR:          (<CR>)>: DEFAULT
-}
-
-<PRINT_TOKEN> TOKEN:
-{
-        <PRINTED_QUOTED_FIELD:  (([" ", "\t"])* <DOUBLE_QUOTE> ( [ " ", "!", "#" - "~", "\n", "\r", "\t" ] | <TWO_DOUBLE_QUOTES> )* <DOUBLE_QUOTE>)> |
-        <PRINT_CR:         (<CR>)>: DEFAULT
-}
-
-
-protected void parse(final StringBuilder builder) throws Exception:
+protected void parse(final StringBuilder sb, final Builder builder) throws Exception:
 {
     Token eolToken;
     Token eofToken;
-    Token commaToken;
-
-    int maxFields  = -1;
-    int fieldCount =  0;
 
     System.out.println("Parsing begins");
 
-    builder.append("---\n");
+    sb.append("---\n");
 }
 
 {
-    (processLine(builder))+ <EOF>
+    (
+        object(sb, builder)
+    )
 }
 
+// -----------------------------------------------------------------------------------------------------
 
-void processLine(final StringBuilder builder) throws Exception:
+<OBJECT> SKIP:
 {
-    Token nameToken;
-    Token quotedToken;
+    "\t" | "\n" | "\r" | " "
+}
+
+<OBJECT> TOKEN:
+{
+    <NAME:          (<TEXT>)+>
+    |
+    <OBJECT_START:  (<LCURLY>)>
+    |
+    <OBJECT_END:    (<RCURLY>)> : DEFAULT
+}
+
+void object(final StringBuilder sb, final Builder builder) throws Exception:
+{
+    Token name;
+    Token rightCurly;
+
+    System.out.println("Processing object!");
 }
 
 {
-    <LET> {
-        System.out.println("Hit LET");
-    }
-
-    nameToken = <NON_QUOTED_FIELD> {
-        System.out.println("LET -> Hit name [" + nameToken.image + "]");
-    }
-
-    quotedToken = <LET_VALUE_TOKEN>
+    <OBJECT> name = <NAME> <OBJECT_START>
     {
-        builder.append("- ").append("var:\n").append("    ").append(nameToken.trim()).append(": ").append(quotedToken.image).append("\n");
-
-        System.out.println("LET -> Hit value [" + quotedToken.image + "]");
+        builder.objectStart(name.image, name.beginLine, name.endLine);
     }
 
-    <LET_CR>
+            
+    objectDef(sb, builder)
 
-    | 
-
-    <PRINT> {
-        System.out.println("Hit PRINT");
-    }
-
-    quotedToken = <PRINTED_QUOTED_FIELD>
+    rightCurly = <OBJECT_END>
     {
-        builder.append("- ").append("log:\n").append("    msg: ").append(quotedToken).append("\n");
+        builder.objectEnd(name.image, rightCurly.beginLine, rightCurly.endLine);
+    }
+}
 
-        System.out.println("PRINT -> Hit value [" + quotedToken.image + "]");
+// -----------------------------------------------------------------------------------------------------
+
+void objectDef(final StringBuidler sb, final Builder builder) throws Exception:
+{
+    Token name;
+    Token rightCurly;
+}
+
+{
+    (
+        method(sb, builder)
+    )
+}
+
+// -----------------------------------------------------------------------------------------------------
+
+<METHOD> TOKEN:
+{
+    <METHOD:        ("method")>
+    |
+    <NAME:          (<TEXT>)+>
+    |
+    <METHOD_START:  (<LCURLY>)> : METHOD
+    |
+    <METHOD_END:    (<RCURLY>)> : OBJECT
+}
+
+void method(final StringBuidler sb, final Builder builder) throws Exception:
+{
+    Token name;
+    Token rightCurly;
+}
+
+{
+    <METHOD> name=<NAME> <METHOD_START>
+    {
+        builder.methodStart(name.image, name.beginLine, name.endLine);
     }
 
-    <PRINT_CR>
+    rightCurly=<METHOD_END>
+    {
+        builder.methodEnd(name.image, rightCurly.beginLine, rightCurly.endLine);
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------
+
+
+<LET_STATE> TOKEN:
+{
+        <NON_QUOTED_FIELD:   (<TEXT>)+>         |
+        <LET_VALUE_TOKEN:    (<QUOTED_FIELD>)>  |
+        <LET_CR:             (<CR>)>: DEFAULT
+}
+
+<PRINT_STATE> TOKEN:
+{
+        <PRINTED_QUOTED_FIELD:  (([" ", "\t"])* <DOUBLE_QUOTE> ( [ " ", "!", "#" - "~", "\n", "\r", "\t" ] | <TWO_DOUBLE_QUOTES> )* <DOUBLE_QUOTE>)> |
+        <PRINT_CR:         (<CR>)>: DEFAULT
 }
